@@ -14,8 +14,13 @@ env:
   WIF_SERVICE_ACCOUNT: 'terraform-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com'
 
 jobs:
+  
   security-scan:
     runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
     steps:
     - uses: actions/checkout@v4
 
@@ -28,7 +33,7 @@ jobs:
         output: 'trivy-results.sarif'
 
     - name: Upload Trivy scan results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v2
+      uses: github/codeql-action/upload-sarif@v3
       with:
         sarif_file: 'trivy-results.sarif'
 
