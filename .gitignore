@@ -6,4 +6,10 @@
 terraform.tfvars
 *.tfplan
 
+
 sa-policy.yaml
+
+__pycache__/
+.pytest_cache/
+
+test.db

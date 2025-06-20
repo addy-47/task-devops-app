@@ -10,7 +10,7 @@ class TestIntegration:
         """Set up integration test environment"""
         cls.base_url = "http://localhost:8000"
         cls.start_test_environment()
-        time.sleep(5)  # Wait for services to start
+        cls.wait_for_services()
 
     @classmethod
     def teardown_class(cls):
@@ -20,12 +20,37 @@ class TestIntegration:
     @classmethod
     def start_test_environment(cls):
         """Start docker-compose for integration tests"""
-        subprocess.run(["docker-compose", "up", "-d"], cwd="..")
+        try:
+            subprocess.run(["docker-compose", "up", "-d"], check=True)
+        except subprocess.CalledProcessError as e:
+            print(f"Failed to start services: {e}")
+            raise
 
     @classmethod
     def stop_test_environment(cls):
         """Stop docker-compose"""
-        subprocess.run(["docker-compose", "down"], cwd="..")
+        try:
+            subprocess.run(["docker-compose", "down"], check=True)
+        except subprocess.CalledProcessError as e:
+            print(f"Failed to stop services: {e}")
+            raise
+
+    @classmethod
+    def wait_for_services(cls):
+        """Wait for services to be healthy"""
+        max_attempts = 30
+        attempt = 0
+        while attempt < max_attempts:
+            try:
+                response = requests.get(f"{cls.base_url}/health")
+                if response.status_code == 200:
+                    print("Services are ready!")
+                    return
+            except requests.exceptions.ConnectionError:
+                print(f"Waiting for services... attempt {attempt + 1}/{max_attempts}")
+                time.sleep(1)
+                attempt += 1
+        raise Exception("Services failed to start in time")
 
     def test_api_health(self):
         """Test API health endpoint"""

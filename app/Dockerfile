@@ -15,14 +15,16 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser
 
 WORKDIR /app
 
-# The `--chown=appuser:appuser` flag sets ownership to the non-root user
+# Copy requirements first to leverage Docker cache
+COPY requirements.txt .
+
+# Install Python requirements
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the rest of the application code
 COPY --chown=appuser:appuser . .
 
-#`--no-warn-script-location` suppresses warnings about script locations.
-RUN pip install --user --no-cache-dir --no-warn-script-location -r requirements.txt
-
-ENV PATH=/home/appuser/.local/bin:$PATH
-
+# Switch to non-root user
 USER appuser
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
@@ -30,4 +32,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 
 EXPOSE 8000
 
-CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

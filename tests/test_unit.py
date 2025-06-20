@@ -1,37 +1,54 @@
 import pytest
+import sys
+import os
+from pathlib import Path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+# Set test environment before importing app
+os.environ["ENVIRONMENT"] = "test"
+
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-import sys
-import os
+from sqlalchemy.pool import StaticPool
+from app.database import Base, get_db
+from app.main import app
 
-# Add app directory to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'app'))
-
-from app.main import app, get_db
-from app.database import Base
-import app.models
-
-# Test database
-SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+# Use in-memory SQLite for testing
+SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL,
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool
+)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+# Database dependency override
 def override_get_db():
+    db = TestingSessionLocal()
     try:
-        db = TestingSessionLocal()
         yield db
     finally:
         db.close()
 
-app.dependency_overrides[get_db] = override_get_db
-
-@pytest.fixture
-def client():
+@pytest.fixture(scope="function")
+def test_db():
+    # Create test database tables
     Base.metadata.create_all(bind=engine)
-    with TestClient(app) as c:
-        yield c
+    yield
+    # Drop tables after each test
     Base.metadata.drop_all(bind=engine)
+
+@pytest.fixture(scope="function")
+def client(test_db):
+    # Override the get_db dependency
+    app.dependency_overrides[get_db] = override_get_db
+    
+    with TestClient(app) as test_client:
+        yield test_client
+    
+    # Clear dependency overrides after test
+    app.dependency_overrides.clear()
 
 def test_health_check(client):
     response = client.get("/health")

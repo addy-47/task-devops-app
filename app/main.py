@@ -3,30 +3,49 @@ from sqlalchemy.orm import Session
 from typing import List
 import logging
 import os
-from . import models, database
-from .database import get_db
+from app import models, database
+from app.database import get_db
+import python_multipart
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Create FastAPI instance at module level
 app = FastAPI(title="Task Management API", version="1.0.0")
 
-# Create tables
-models.Base.metadata.create_all(bind=database.engine)
+# Create tables if not in test environment
+if os.getenv("ENVIRONMENT") != "test":
+    try:
+        models.Base.metadata.create_all(bind=database.engine)
+        logger.info("Database tables created successfully")
+    except Exception as e:
+        logger.error(f"Error creating database tables: {str(e)}")
 
+# Health check endpoint
 @app.get("/health")
 async def health_check():
     """Health check endpoint for monitoring"""
     return {"status": "healthy", "service": "task-api"}
 
+# Metrics endpoint
 @app.get("/metrics")
 async def metrics():
     """Basic metrics endpoint for monitoring integration"""
-    return {
-        "total_tasks": get_task_count(),
-        "service_status": "running"
-    }
+    try:
+        db = next(get_db())
+        task_count = db.query(models.Task).count()
+        db.close()
+        return {
+            "total_tasks": task_count,
+            "service_status": "running"
+        }
+    except Exception as e:
+        logger.error(f"Error getting metrics: {str(e)}")
+        return {
+            "total_tasks": 0,
+            "service_status": "error"
+        }
 
 @app.post("/tasks/", status_code=status.HTTP_201_CREATED)
 async def create_task(title: str, description: str = "", db: Session = Depends(get_db)):
