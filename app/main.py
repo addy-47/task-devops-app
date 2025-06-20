@@ -3,9 +3,21 @@ from sqlalchemy.orm import Session
 from typing import List
 import logging
 import os
-from app import models, database
-from app.database import get_db
-import python_multipart
+
+# Try both import styles to support both Docker and local testing
+try:
+    # For local testing (app is a package)
+    from app import models, database
+    from app.database import get_db
+except ImportError:
+    # For Docker container (app is the working directory)
+    import models
+    import database
+    from database import get_db
+
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -13,6 +25,27 @@ logger = logging.getLogger(__name__)
 
 # Create FastAPI instance at module level
 app = FastAPI(title="Task Management API", version="1.0.0")
+
+# Security headers middleware
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        response.headers["Content-Security-Policy"] = "default-src 'self'"
+        return response
+
+# Add security headers and CORS middleware
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Restrict based on your requirements in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Create tables if not in test environment
 if os.getenv("ENVIRONMENT") != "test":

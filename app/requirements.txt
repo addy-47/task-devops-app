@@ -1,5 +1,9 @@
-fastapi
-uvicorn[standard]
-sqlalchemy<2.0
-psycopg2-binary
-python-multipart
+fastapi==0.109.2
+uvicorn[standard]==0.27.1
+sqlalchemy==2.0.27
+psycopg2-binary==2.9.9
+python-multipart==0.0.18
+# Security enhancements
+pydantic==2.6.1
+starlette<0.40.0
+python-dotenv==1.0.0
