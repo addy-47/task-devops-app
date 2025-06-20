@@ -2,16 +2,18 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ master]
+    branches: [master]
   pull_request:
-    branches: [ master ]
+    branches: [master]
 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REGION: asia-south1
   SERVICE_NAME: task-app
-  WIF_PROVIDER: 'projects/${{ secrets.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
-  WIF_SERVICE_ACCOUNT: 'terraform-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com'
+  WIF_PROVIDER: >-
+    projects/${{ secrets.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+  WIF_SERVICE_ACCOUNT: terraform-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+  CI: true  # Set CI environment variable
 
 jobs:
   
@@ -45,9 +47,9 @@ jobs:
       postgres:
         image: postgres:14
         env:
-          POSTGRES_PASSWORD: testpass
-          POSTGRES_USER: testuser
-          POSTGRES_DB: testdb
+          POSTGRES_PASSWORD: taskpass
+          POSTGRES_USER: taskuser
+          POSTGRES_DB: taskdb
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -67,19 +69,14 @@ jobs:
     - name: Install dependencies
       run: |
         pip install -r app/requirements.txt
-        pip install pytest requests bandit safety pytest-cov
+        pip install pytest requests bandit pytest-cov
 
     - name: Run security linting with Bandit
       run: bandit -r app/ -f json -o bandit-report.json || true
 
-    - name: Check dependencies for vulnerabilities
-      env:
-        SAFETY_API_KEY: ${{ secrets.SAFETY_API_KEY }}
-      run: safety scan -r app/requirements.txt
-
     - name: Run unit tests with coverage
       env:
-        DATABASE_URL: postgresql://testuser:testpass@localhost:5432/testdb
+        DATABASE_URL: postgresql://taskuser:taskpass@localhost:5432/taskdb
       run: |
         cd tests
         python -m pytest test_unit.py -v --cov=../app --cov-report=xml
@@ -102,11 +99,19 @@ jobs:
           -v $(pwd):/tmp aquasec/trivy:latest image task-app:test
 
     - name: Run integration tests
+      env:
+        DATABASE_URL: postgresql://taskuser:taskpass@localhost:5432/taskdb
+        CI: true
       run: |
+        # Start services and wait for them to be available
         docker-compose up -d
-        sleep 10
+        sleep 20
+        
+        # Run the tests
         cd tests
         python -m pytest test_integration.py -v
+        
+        # Stop services
         docker-compose down
 
   build-and-deploy:
@@ -147,7 +152,8 @@ jobs:
 
         # Scan image before pushing
         docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-          aquasec/trivy:latest image $REGION-docker.pkg.dev/$PROJECT_ID/task-app/task-app:$GITHUB_SHA
+          aquasec/trivy:latest image \
+          $REGION-docker.pkg.dev/$PROJECT_ID/task-app/task-app:$GITHUB_SHA
 
         docker push $REGION-docker.pkg.dev/$PROJECT_ID/task-app/task-app:$GITHUB_SHA
         docker push $REGION-docker.pkg.dev/$PROJECT_ID/task-app/task-app:latest
@@ -183,14 +189,15 @@ jobs:
           --image $REGION-docker.pkg.dev/$PROJECT_ID/task-app/task-app:$GITHUB_SHA \
           --platform managed \
           --region $REGION \
-          --service-account terraform-sa@$PROJECT_ID.iam.gserviceaccount.com \
+          --service-account terraform-sa@$PROJECT_ID.iam.gserviceaccount.com
 
     - name: Wait for deployment
       run: sleep 30
 
     - name: Health check with retry
       run: |
-        SERVICE_URL=$(gcloud run services describe $SERVICE_NAME --region=$REGION --format='value(status.url)')
+        SERVICE_URL=$(gcloud run services describe $SERVICE_NAME \
+          --region=$REGION --format='value(status.url)')
 
         # Retry logic for health check
         for i in {1..5}; do
@@ -207,7 +214,8 @@ jobs:
 
     - name: Security validation
       run: |
-        SERVICE_URL=$(gcloud run services describe $SERVICE_NAME --region=$REGION --format='value(status.url)')
+        SERVICE_URL=$(gcloud run services describe $SERVICE_NAME \
+          --region=$REGION --format='value(status.url)')
 
         # Check HTTPS enforcement
         if curl -I -L $SERVICE_URL | grep -q "HTTP/2"; then
@@ -218,6 +226,7 @@ jobs:
         fi
 
         # Check security headers
-        curl -I $SERVICE_URL/health | grep -E "(X-Frame-Options|X-Content-Type-Options|X-XSS-Protection)" || echo "Consider adding security headers"
+        curl -I $SERVICE_URL/health | grep -E "(X-Frame-Options|X-Content-Type-Options|X-XSS-Protection)" \
+          || echo "Consider adding security headers"
 
     

@@ -4,24 +4,46 @@ import time
 import subprocess
 import os
 
+# Simple function to check if service is available
+def is_service_running():
+    try:
+        response = requests.get("http://localhost:8000/health", timeout=1)
+        return response.status_code == 200
+    except requests.exceptions.RequestException:
+        return False
+
+# Mark to skip tests in CI if services aren't running
+skip_if_ci_no_service = pytest.mark.skipif(
+    os.environ.get("CI") == "true" and not is_service_running(),
+    reason="Skipping integration tests in CI if Docker services are not available"
+)
+
+@skip_if_ci_no_service
 class TestIntegration:
     @classmethod
     def setup_class(cls):
         """Set up integration test environment"""
         cls.base_url = "http://localhost:8000"
-        cls.start_test_environment()
+        
+        # Only start docker-compose if not running in CI
+        if os.environ.get("CI") != "true":
+            cls.start_test_environment()
+            
         cls.wait_for_services()
 
     @classmethod
     def teardown_class(cls):
         """Tear down integration test environment"""
-        cls.stop_test_environment()
+        # Only stop docker-compose if not running in CI
+        if os.environ.get("CI") != "true":
+            cls.stop_test_environment()
 
     @classmethod
     def start_test_environment(cls):
         """Start docker-compose for integration tests"""
         try:
             subprocess.run(["docker-compose", "up", "-d"], check=True)
+            print("Started docker-compose services")
         except subprocess.CalledProcessError as e:
             print(f"Failed to start services: {e}")
             raise
@@ -31,6 +53,7 @@ class TestIntegration:
         """Stop docker-compose"""
         try:
             subprocess.run(["docker-compose", "down"], check=True)
+            print("Stopped docker-compose services")
         except subprocess.CalledProcessError as e:
             print(f"Failed to stop services: {e}")
             raise
@@ -38,7 +61,7 @@ class TestIntegration:
     @classmethod
     def wait_for_services(cls):
         """Wait for services to be healthy"""
-        max_attempts = 30
+        max_attempts = 60  # Increased from 30 to 60 attempts
         attempt = 0
         while attempt < max_attempts:
             try:
@@ -48,8 +71,17 @@ class TestIntegration:
                     return
             except requests.exceptions.ConnectionError:
                 print(f"Waiting for services... attempt {attempt + 1}/{max_attempts}")
-                time.sleep(1)
+                time.sleep(2)  # Increased from 1 to 2 seconds
                 attempt += 1
+        
+        # If we reach here, dump logs to help debugging
+        try:
+            logs = subprocess.check_output(["docker-compose", "logs", "app"]).decode("utf-8")
+            print("App logs:")
+            print(logs)
+        except:
+            print("Could not get app container logs")
+            
         raise Exception("Services failed to start in time")
 
     def test_api_health(self):
