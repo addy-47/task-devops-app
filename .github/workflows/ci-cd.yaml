@@ -1,0 +1,216 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ master]
+  pull_request:
+    branches: [ master ]
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: asia-south1
+  SERVICE_NAME: task-app
+  WIF_PROVIDER: 'projects/${{ secrets.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
+  WIF_SERVICE_ACCOUNT: 'terraform-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com'
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  test:
+    needs: security-scan
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_USER: testuser
+          POSTGRES_DB: testdb
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install dependencies
+      run: |
+        pip install -r app/requirements.txt
+        pip install pytest requests bandit safety
+
+    - name: Run security linting with Bandit
+      run: bandit -r app/ -f json -o bandit-report.json || true
+
+    - name: Check dependencies for vulnerabilities
+      run: safety check -r app/requirements.txt
+
+    - name: Run unit tests with coverage
+      env:
+        DATABASE_URL: postgresql://testuser:testpass@localhost:5432/testdb
+      run: |
+        cd tests
+        python -m pytest test_unit.py -v --cov=../app --cov-report=xml
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build Docker image for testing
+      run: |
+        docker build -t task-app:test ./app
+
+    - name: Run container security scan
+      run: |
+        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+          -v $(pwd):/tmp aquasec/trivy:latest image task-app:test
+
+    - name: Run integration tests
+      run: |
+        docker-compose up -d
+        sleep 10
+        cd tests
+        python -m pytest test_integration.py -v
+        docker-compose down
+
+  build-and-deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v1
+      with:
+        workload_identity_provider: ${{ env.WIF_PROVIDER }}
+        service_account: ${{ env.WIF_SERVICE_ACCOUNT }}
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v1
+
+    - name: Configure Docker for Artifact Registry
+      run: |
+        gcloud auth configure-docker $REGION-docker.pkg.dev
+
+    - name: Build and push Docker image
+      run: |
+        # Build with security best practices
+        docker build \
+          --no-cache \
+          --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
+          --build-arg VCS_REF=$GITHUB_SHA \
+          -t $REGION-docker.pkg.dev/$PROJECT_ID/task-app/task-app:$GITHUB_SHA \
+          -t $REGION-docker.pkg.dev/$PROJECT_ID/task-app/task-app:latest \
+          ./app
+
+        # Scan image before pushing
+        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+          aquasec/trivy:latest image $REGION-docker.pkg.dev/$PROJECT_ID/task-app/task-app:$GITHUB_SHA
+
+        docker push $REGION-docker.pkg.dev/$PROJECT_ID/task-app/task-app:$GITHUB_SHA
+        docker push $REGION-docker.pkg.dev/$PROJECT_ID/task-app/task-app:latest
+
+    - name: Set up Terraform
+      uses: hashicorp/setup-terraform@v2
+      with:
+        terraform_version: 1.5.0
+
+    - name: Terraform Security Scan
+      uses: aquasecurity/tfsec-action@v1.0.0
+      with:
+        working_directory: terraform/
+
+    - name: Terraform Init
+      run: |
+        cd terraform
+        terraform init
+
+    - name: Terraform Plan
+      run: |
+        cd terraform
+        terraform plan -out=tfplan
+
+    - name: Terraform Apply
+      run: |
+        cd terraform
+        terraform apply tfplan
+
+    - name: Deploy to Cloud Run
+      run: |
+        gcloud run deploy $SERVICE_NAME \
+          --image $REGION-docker.pkg.dev/$PROJECT_ID/task-app/task-app:$GITHUB_SHA \
+          --platform managed \
+          --region $REGION \
+          --service-account terraform-sa@$PROJECT_ID.iam.gserviceaccount.com \
+
+    - name: Wait for deployment
+      run: sleep 30
+
+    - name: Health check with retry
+      run: |
+        SERVICE_URL=$(gcloud run services describe $SERVICE_NAME --region=$REGION --format='value(status.url)')
+
+        # Retry logic for health check
+        for i in {1..5}; do
+          if curl -f -m 10 $SERVICE_URL/health; then
+            echo "Health check passed!"
+            exit 0
+          fi
+          echo "Health check attempt $i failed, retrying..."
+          sleep 10
+        done
+
+        echo "Health check failed after 5 attempts"
+        exit 1
+
+    - name: Security validation
+      run: |
+        SERVICE_URL=$(gcloud run services describe $SERVICE_NAME --region=$REGION --format='value(status.url)')
+
+        # Check HTTPS enforcement
+        if curl -I -L $SERVICE_URL | grep -q "HTTP/2"; then
+          echo "✓ HTTPS enforced"
+        else
+          echo "✗ HTTPS not enforced"
+          exit 1
+        fi
+
+        # Check security headers
+        curl -I $SERVICE_URL/health | grep -E "(X-Frame-Options|X-Content-Type-Options|X-XSS-Protection)" || echo "Consider adding security headers"
+
+    
