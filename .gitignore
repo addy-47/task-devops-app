@@ -1,31 +1,7 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-venv/
-ENV/
-env/
-
 # Terraform
 *.tfstate
 *.tfstate.*
-.terraform/
 terraform.tfvars
 *.tfplan
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Project specific
-terraform-key.json
-.env
-test.db
+sa-policy.yaml
