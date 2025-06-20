@@ -73,6 +73,8 @@ jobs:
       run: bandit -r app/ -f json -o bandit-report.json || true
 
     - name: Check dependencies for vulnerabilities
+      env:
+        SAFETY_API_KEY: ${{ secrets.SAFETY_API_KEY }}
       run: safety scan -r app/requirements.txt
 
     - name: Run unit tests with coverage
