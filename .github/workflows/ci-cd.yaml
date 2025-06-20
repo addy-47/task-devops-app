@@ -67,7 +67,7 @@ jobs:
     - name: Install dependencies
       run: |
         pip install -r app/requirements.txt
-        pip install pytest requests bandit safety
+        pip install pytest requests bandit safety pytest-cov
 
     - name: Run security linting with Bandit
       run: bandit -r app/ -f json -o bandit-report.json || true
