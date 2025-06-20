@@ -1,0 +1,21 @@
+bindings:
+- members:
+  - serviceAccount:terraform-sa@task-devops-app.iam.gserviceaccount.com
+  role: roles/artifactregistry.admin
+- members:
+  - serviceAccount:terraform-sa@task-devops-app.iam.gserviceaccount.com
+  role: roles/cloudsql.admin
+- members:
+  - serviceAccount:terraform-sa@task-devops-app.iam.gserviceaccount.com
+  role: roles/iam.serviceAccountUser
+- members:
+  - user:adhbutg@gmail.com
+  role: roles/owner
+- members:
+  - serviceAccount:terraform-sa@task-devops-app.iam.gserviceaccount.com
+  role: roles/run.developer
+- members:
+  - serviceAccount:terraform-sa@task-devops-app.iam.gserviceaccount.com
+  role: roles/storage.admin
+etag: BwY364XMGrM=
+version: 1
