@@ -7,7 +7,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 # Set test environment before importing app
 os.environ["ENVIRONMENT"] = "test"
 
-from fastapi.testclient import TestClient
+# We'll use direct imports from starlette to avoid FastAPI's wrapper
+from starlette.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -40,7 +41,7 @@ def client():
     # Override the get_db dependency
     api.dependency_overrides[get_db] = override_get_db
     
-    # Create a TestClient
+    # Create a client using direct instantiation without context manager
     client = TestClient(api)
     yield client
     
