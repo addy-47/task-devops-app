@@ -24,7 +24,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Create FastAPI instance at module level
-app = FastAPI(title="Task Management API", version="1.0.0")
+api = FastAPI(title="Task Management API", version="1.0.0")
 
 # Security headers middleware
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -38,8 +38,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 # Add security headers and CORS middleware
-app.add_middleware(SecurityHeadersMiddleware)
-app.add_middleware(
+api.add_middleware(SecurityHeadersMiddleware)
+api.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Restrict based on your requirements in production
     allow_credentials=True,
@@ -56,84 +56,108 @@ if os.getenv("ENVIRONMENT") != "test":
         logger.error(f"Error creating database tables: {str(e)}")
 
 # Health check endpoint
-@app.get("/health")
+@api.get("/health")
 async def health_check():
     """Health check endpoint for monitoring"""
     return {"status": "healthy", "service": "task-api"}
 
-# Metrics endpoint
-@app.get("/metrics")
-async def metrics():
-    """Basic metrics endpoint for monitoring integration"""
-    try:
-        db = next(get_db())
-        task_count = db.query(models.Task).count()
-        db.close()
-        return {
-            "total_tasks": task_count,
-            "service_status": "running"
-        }
-    except Exception as e:
-        logger.error(f"Error getting metrics: {str(e)}")
-        return {
-            "total_tasks": 0,
-            "service_status": "error"
-        }
-
-@app.post("/tasks/", status_code=status.HTTP_201_CREATED)
+# Create a new task
+@api.post("/tasks/", status_code=status.HTTP_201_CREATED)
 async def create_task(title: str, description: str = "", db: Session = Depends(get_db)):
     """Create a new task"""
-    logger.info(f"Creating task: {title}")
-    db_task = models.Task(title=title, description=description)
-    db.add(db_task)
-    db.commit()
-    db.refresh(db_task)
-    return db_task
+    try:
+        db_task = models.Task(title=title, description=description)
+        db.add(db_task)
+        db.commit()
+        db.refresh(db_task)
+        return db_task
+    except Exception as e:
+        logger.error(f"Error creating task: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
-@app.get("/tasks/", response_model=List[dict])
+# Get all tasks
+@api.get("/tasks/")
 async def get_tasks(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     """Get all tasks with pagination"""
-    tasks = db.query(models.Task).offset(skip).limit(limit).all()
-    return [{"id": t.id, "title": t.title, "description": t.description, "completed": t.completed} for t in tasks]
+    try:
+        tasks = db.query(models.Task).offset(skip).limit(limit).all()
+        return [{"id": task.id, "title": task.title, "description": task.description, "completed": task.completed} for task in tasks]
+    except Exception as e:
+        logger.error(f"Error retrieving tasks: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
-@app.get("/tasks/{task_id}")
+# Get a specific task by ID
+@api.get("/tasks/{task_id}")
 async def get_task(task_id: int, db: Session = Depends(get_db)):
-    """Get a specific task"""
-    task = db.query(models.Task).filter(models.Task.id == task_id).first()
-    if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
-    return {"id": task.id, "title": task.title, "description": task.description, "completed": task.completed}
+    """Get a specific task by ID"""
+    try:
+        task = db.query(models.Task).filter(models.Task.id == task_id).first()
+        if task is None:
+            raise HTTPException(status_code=404, detail="Task not found")
+        return {"id": task.id, "title": task.title, "description": task.description, "completed": task.completed}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving task: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
-@app.put("/tasks/{task_id}")
-async def update_task(task_id: int, title: str = None, description: str = None,
-                     completed: bool = None, db: Session = Depends(get_db)):
+# Update a task
+@api.put("/tasks/{task_id}")
+async def update_task(
+    task_id: int, 
+    title: str | None = None, 
+    description: str | None = None, 
+    completed: bool | None = None,
+    db: Session = Depends(get_db)
+):
     """Update a task"""
-    task = db.query(models.Task).filter(models.Task.id == task_id).first()
-    if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
+    try:
+        task = db.query(models.Task).filter(models.Task.id == task_id).first()
+        if task is None:
+            raise HTTPException(status_code=404, detail="Task not found")
+        
+        if title is not None:
+            task.title = title
+        if description is not None:
+            task.description = description
+        if completed is not None:
+            task.completed = completed
+            
+        db.commit()
+        db.refresh(task)
+        return {"id": task.id, "title": task.title, "description": task.description, "completed": task.completed}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating task: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
-    if title is not None:
-        task.title = title
-    if description is not None:
-        task.description = description
-    if completed is not None:
-        task.completed = completed
-
-    db.commit()
-    logger.info(f"Updated task {task_id}")
-    return {"id": task.id, "title": task.title, "description": task.description, "completed": task.completed}
-
-@app.delete("/tasks/{task_id}")
+# Delete a task
+@api.delete("/tasks/{task_id}")
 async def delete_task(task_id: int, db: Session = Depends(get_db)):
     """Delete a task"""
-    task = db.query(models.Task).filter(models.Task.id == task_id).first()
-    if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
+    try:
+        task = db.query(models.Task).filter(models.Task.id == task_id).first()
+        if task is None:
+            raise HTTPException(status_code=404, detail="Task not found")
+        
+        db.delete(task)
+        db.commit()
+        return {"message": "Task deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting task: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
-    db.delete(task)
-    db.commit()
-    logger.info(f"Deleted task {task_id}")
-    return {"message": "Task deleted successfully"}
+# Metrics endpoint for monitoring
+@api.get("/metrics")
+async def metrics():
+    """Get application metrics for monitoring"""
+    return {
+        "total_tasks": get_task_count(),
+        "service_status": "running"
+    }
 
 def get_task_count():
     """Helper function for metrics"""
@@ -145,4 +169,4 @@ def get_task_count():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
+    uvicorn.run(api, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
