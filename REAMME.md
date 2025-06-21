@@ -14,9 +14,6 @@ task-api-project/
 │   ├── database.py         # Database configuration
 │   ├── requirements.txt    # Python dependencies
 │   └── Dockerfile          # Docker configuration
-├── tests/                  # Unit and integration tests
-│   ├── test_unit.py
-│   └── test_integration.py
 ├── terraform/              # Terraform infrastructure code
 │   ├── provider.tf         # Terraform and provider config
 │   ├── database.tf         # Cloud SQL and related resources
@@ -41,7 +38,6 @@ This project provides a task management API with endpoints for creating, reading
 - **Backend:** FastAPI, SQLAlchemy, PostgreSQL
 - **Infrastructure:** GCP (Cloud Run, Cloud SQL, Artifact Registry), Terraform
 - **CI/CD:** GitHub Actions for testing, building, and deploying
-- **Testing:** Pytest for unit and integration tests
 - **Monitoring:** Health and metrics endpoints for observability
 
 ---
