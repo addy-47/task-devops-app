@@ -41,8 +41,8 @@ def client():
     api.dependency_overrides[get_db] = override_get_db
     
     # Create a TestClient
-    with TestClient(api) as test_client:
-        yield test_client
+    client = TestClient(api)
+    yield client
     
     # Drop the tables after the tests
     Base.metadata.drop_all(bind=engine)
