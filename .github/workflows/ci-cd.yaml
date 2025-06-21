@@ -124,25 +124,6 @@ jobs:
       run: |
         gcloud auth configure-docker $REGION-docker.pkg.dev
 
-    - name: Build and push Docker image
-      run: |
-        # Build with security best practices
-        docker build \
-          --no-cache \
-          --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
-          --build-arg VCS_REF=$GITHUB_SHA \
-          -t $REGION-docker.pkg.dev/$PROJECT_ID/task-app/task-app:$GITHUB_SHA \
-          -t $REGION-docker.pkg.dev/$PROJECT_ID/task-app/task-app:latest \
-          ./app
-
-        # Scan image before pushing
-        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-          aquasec/trivy:latest image \
-          $REGION-docker.pkg.dev/$PROJECT_ID/task-app/task-app:$GITHUB_SHA
-
-        docker push $REGION-docker.pkg.dev/$PROJECT_ID/task-app/task-app:$GITHUB_SHA
-        docker push $REGION-docker.pkg.dev/$PROJECT_ID/task-app/task-app:latest
-
     - name: Set up Terraform
       uses: hashicorp/setup-terraform@v2
       with:
@@ -167,6 +148,26 @@ jobs:
       run: |
         cd terraform
         terraform apply tfplan
+
+    # Now build and push Docker image after Terraform has created the artifact registry
+    - name: Build and push Docker image
+      run: |
+        # Build with security best practices
+        docker build \
+          --no-cache \
+          --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
+          --build-arg VCS_REF=$GITHUB_SHA \
+          -t $REGION-docker.pkg.dev/$PROJECT_ID/task-app/task-app:$GITHUB_SHA \
+          -t $REGION-docker.pkg.dev/$PROJECT_ID/task-app/task-app:latest \
+          ./app
+
+        # Scan image before pushing
+        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+          aquasec/trivy:latest image \
+          $REGION-docker.pkg.dev/$PROJECT_ID/task-app/task-app:$GITHUB_SHA
+
+        docker push $REGION-docker.pkg.dev/$PROJECT_ID/task-app/task-app:$GITHUB_SHA
+        docker push $REGION-docker.pkg.dev/$PROJECT_ID/task-app/task-app:latest
 
     - name: Deploy to Cloud Run
       run: |
