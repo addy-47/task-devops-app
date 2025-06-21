@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Depends, status
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 import logging
 import os
 
@@ -105,9 +105,9 @@ async def get_task(task_id: int, db: Session = Depends(get_db)):
 @api.put("/tasks/{task_id}")
 async def update_task(
     task_id: int, 
-    title: str | None = None, 
-    description: str | None = None, 
-    completed: bool | None = None,
+    title: Optional[str] = None, 
+    description: Optional[str] = None, 
+    completed: Optional[bool] = None,
     db: Session = Depends(get_db)
 ):
     """Update a task"""
