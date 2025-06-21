@@ -99,6 +99,13 @@ jobs:
         docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
           -v $(pwd):/tmp aquasec/trivy:latest image task-app:test
 
+    - name: Install Docker Compose
+      run: |
+        sudo curl -L "https://github.com/docker/compose/releases/download/v2.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+        sudo chmod +x /usr/local/bin/docker-compose
+        docker-compose version
+
+
     - name: Run integration tests
       env:
         DATABASE_URL: postgresql://taskuser:taskpass@localhost:5432/taskdb
