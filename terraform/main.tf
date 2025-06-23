@@ -67,6 +67,12 @@ resource "google_service_account_iam_member" "cloud_run_act_as" {
   member             = "serviceAccount:${google_service_account.cloud_run_sa.email}"
 }
 
+resource "google_service_account_iam_member" "cloud_run_agent_act_as" {
+  service_account_id = google_service_account.cloud_run_sa.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:service-${var.project_id}@serverless-robot-prod.iam.gserviceaccount.com"
+}
+
 resource "google_cloud_run_service" "task_app" {
   name     = "task-app"
   location = var.region
