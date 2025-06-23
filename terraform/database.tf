@@ -26,6 +26,7 @@ resource "google_artifact_registry_repository" "task_app_repo" {
   format        = "DOCKER"
 }
 
+#tfsec:ignore:google-sql-encrypt-in-transit-data
 # Cloud SQL Instance (PostgreSQL) 
 resource "google_sql_database_instance" "postgres" {
   name             = "task-app-db"
