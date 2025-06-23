@@ -61,6 +61,12 @@ resource "google_secret_manager_secret_iam_member" "cloud_run_secret_access" {
   member    = "serviceAccount:${google_service_account.cloud_run_sa.email}"
 }
 
+resource "google_service_account_iam_member" "cloud_run_act_as" {
+  service_account_id = google_service_account.cloud_run_sa.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${google_service_account.cloud_run_sa.email}"
+}
+
 resource "google_cloud_run_service" "task_app" {
   name     = "task-app"
   location = var.region
