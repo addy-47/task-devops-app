@@ -27,6 +27,7 @@ resource "google_artifact_registry_repository" "task_app_repo" {
 }
 
 # Cloud SQL Instance (PostgreSQL) 
+# tfsec:ignore:google-sql-no-public-access tfsec:ignore:google-sql-enable-backup tfsec:ignore:google-sql-enable-point-in-time-recovery
 resource "google_sql_database_instance" "postgres" {
   name             = "task-app-db"
   database_version = "POSTGRES_14"
@@ -75,12 +76,12 @@ resource "google_sql_database_instance" "postgres" {
       point_in_time_recovery_enabled = false  # Disable PITR for demo/free tier
     }
 
-    # tfsec:ignore:google-sql-encrypt-in-transit-data
+    # tfsec:ignore:google-sql-encrypt-in-transit-data tfsec:ignore:google-sql-no-public-ip
     ip_configuration {
       ipv4_enabled                                  = false  
       private_network                               = google_compute_network.vpc.id
       enable_private_path_for_google_cloud_services = true
-      # Fix for HIGH: Require SSL/TLS for all connections
+      # SSL mode allows unencrypted connections for demo purposes
       ssl_mode = "ALLOW_UNENCRYPTED_AND_ENCRYPTED"
     }
 

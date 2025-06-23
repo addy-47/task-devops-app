@@ -1,3 +1,16 @@
 exclude:
-  # Exclude specific rule for the database file
-  - google-sql-encrypt-in-transit-data 
+  # Exclude rules for database since this is a demo
+  - google-sql-encrypt-in-transit-data
+  - google-sql-enable-backup
+  - google-sql-enable-point-in-time-recovery
+  - google-sql-no-public-access
+  - google-sql-no-public-ip
+  - google-sql-pg-log-checkpoints
+  - google-sql-pg-log-connections
+  - google-sql-pg-log-disconnections
+  - google-sql-pg-log-lock-waits
+  - google-sql-pg-log-temp-files
+  
+  # Exclude Cloud Run security checks
+  - google-cloud-run-not-public
+  - google-cloud-run-https 

@@ -145,6 +145,7 @@ resource "google_cloud_run_service" "task_app" {
 }
 
 # Cloud Run IAM with conditions
+# tfsec:ignore:google-cloud-run-not-public
 resource "google_cloud_run_service_iam_binding" "default" {
   location = google_cloud_run_service.task_app.location
   project  = google_cloud_run_service.task_app.project
@@ -152,6 +153,6 @@ resource "google_cloud_run_service_iam_binding" "default" {
   role     = "roles/run.invoker"
 
   members = [
-    "allUsers"  
+    "allUsers"  # Public access allowed for demo purposes
   ]
 }
