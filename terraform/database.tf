@@ -31,16 +31,16 @@ resource "google_sql_database_instance" "postgres" {
   name             = "task-app-db"
   database_version = "POSTGRES_14"
   region           = var.region
-  deletion_protection = true  # Enable deletion protection
+  deletion_protection = false  # Disable deletion protection for demo purposes
 
 
     settings {
-        tier              = "db-f1-micro"
+        tier              = "db-f1-micro"  # Smallest available tier
         availability_type = "ZONAL"
-        disk_type         = "PD_SSD"  # Use SSD for better performance
-        disk_size         = 2
-        disk_autoresize   = true
-        disk_autoresize_limit = 5
+        disk_type         = "PD_HDD"  # Use HDD for cost savings
+        disk_size         = 1  # Minimum size
+        disk_autoresize   = false  # Disable autoresize to control costs
+        disk_autoresize_limit = 0
 
     # Security configurations
     database_flags {
@@ -71,13 +71,8 @@ resource "google_sql_database_instance" "postgres" {
     }
 
     backup_configuration {
-      enabled                        = true
-      start_time                     = "03:00"
-      point_in_time_recovery_enabled = true
-      backup_retention_settings {
-        retained_backups = 2
-        retention_unit   = "COUNT"
-      }
+      enabled                        = false  # Disable backups for demo/free tier
+      point_in_time_recovery_enabled = false  # Disable PITR for demo/free tier
     }
 
     # tfsec:ignore:google-sql-encrypt-in-transit-data

@@ -1,3 +1,9 @@
+# Configuration optimized for GCP Free Tier
+# This setup minimizes costs by:
+# - Using minimal instance sizes
+# - Enabling scale-to-zero for Cloud Run
+# - Disabling features that incur extra costs
+
 # VPC Network for private communication
 resource "google_compute_network" "vpc" {
   name                    = "task-app-vpc"
@@ -62,13 +68,13 @@ resource "google_cloud_run_service" "task_app" {
   template {
     metadata {
       annotations = {
-        "autoscaling.knative.dev/maxScale"                    = "2"
-        "autoscaling.knative.dev/minScale"                    = "1"
+        "autoscaling.knative.dev/maxScale"                    = "1"  # Limit to 1 instance max
+        "autoscaling.knative.dev/minScale"                    = "0"  # Allow scale to zero for free tier
         "run.googleapis.com/cloudsql-instances"               = google_sql_database_instance.postgres.connection_name
         "run.googleapis.com/vpc-access-connector"             = google_vpc_access_connector.connector.name
         "run.googleapis.com/vpc-access-egress"                = "private-ranges-only"
-        "run.googleapis.com/execution-environment"            = "gen2"
-        "run.googleapis.com/cpu-throttling"                   = "false"
+        "run.googleapis.com/execution-environment"            = "gen1"  # Use gen1 for free tier compatibility
+        "run.googleapis.com/cpu-throttling"                   = "true"  # Enable CPU throttling to save costs
       }
     }
 
@@ -114,12 +120,12 @@ resource "google_cloud_run_service" "task_app" {
 
         resources {
           limits = {
-            cpu    = "1000m"
-            memory = "512Mi"
+            cpu    = "1000m"  # Stay within free tier limits
+            memory = "256Mi"  # Reduced memory for free tier
           }
           requests = {
-            cpu    = "100m"
-            memory = "128Mi"
+            cpu    = "50m"    # Reduced CPU request for free tier
+            memory = "64Mi"   # Minimum memory for functionality
           }
         }
       }
