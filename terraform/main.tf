@@ -173,11 +173,10 @@ resource "google_cloud_run_service" "task_app" {
 # tfsec:ignore:google-cloud-run-not-public
 resource "google_cloud_run_service_iam_binding" "default" {
   location = google_cloud_run_service.task_app.location
-  project  = google_cloud_run_service.task_app.project
+  project  = var.project_id
   service  = google_cloud_run_service.task_app.name
   role     = "roles/run.invoker"
-
-  members = [
-    "allUsers"  # Public access allowed for demo purposes
+  members  = [
+    "allUsers"
   ]
 }
