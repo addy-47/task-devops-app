@@ -133,6 +133,7 @@ jobs:
       uses: aquasecurity/tfsec-action@v1.0.0
       with:
         working_directory: terraform/
+        config_file: ../tfsec.yml
 
     - name: Terraform Init
       run: |

@@ -26,7 +26,6 @@ resource "google_artifact_registry_repository" "task_app_repo" {
   format        = "DOCKER"
 }
 
-#tfsec:ignore:google-sql-encrypt-in-transit-data
 # Cloud SQL Instance (PostgreSQL) 
 resource "google_sql_database_instance" "postgres" {
   name             = "task-app-db"
@@ -81,6 +80,7 @@ resource "google_sql_database_instance" "postgres" {
       }
     }
 
+    # tfsec:ignore:google-sql-encrypt-in-transit-data
     ip_configuration {
       ipv4_enabled                                  = false  
       private_network                               = google_compute_network.vpc.id
