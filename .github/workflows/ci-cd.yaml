@@ -142,7 +142,7 @@ jobs:
     - name: Terraform Plan
       run: |
         cd terraform
-        terraform plan -out=tfplan
+        terraform plan -var="db_password=temp-password-for-ci" -out=tfplan
 
     - name: Terraform Apply
       run: |
