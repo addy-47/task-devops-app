@@ -103,7 +103,7 @@ resource "google_cloud_run_service" "task_app" {
       service_account_name = google_service_account.cloud_run_sa.email
     
       containers {
-        image = "${var.region}-docker.pkg.dev/${var.project_id}/task-app/task-app:latest"
+        image = "gcr.io/cloudrun/hello:latest" # Temporary placeholder image until we push our own
 
         ports {
           container_port = 8000
