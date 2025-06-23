@@ -135,6 +135,10 @@ jobs:
         working_directory: terraform/
         config_file: ../tfsec.yml
 
+    - name: Clean stale Terraform lock
+      run: |
+        gsutil rm -f gs://task-devops-app-terraform-state/terraform/state/default.tflock || true
+
     - name: Terraform Init
       run: |
         cd terraform
