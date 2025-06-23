@@ -39,7 +39,7 @@ resource "google_sql_database_instance" "postgres" {
         tier              = "db-f1-micro"  # Smallest available tier
         availability_type = "ZONAL"
         disk_type         = "PD_HDD"  # Use HDD for cost savings
-        disk_size         = 1  # Minimum size
+        disk_size         = 10 # Minimum size
         disk_autoresize   = false  # Disable autoresize to control costs
         disk_autoresize_limit = 0
 
