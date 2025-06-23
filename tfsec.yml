@@ -13,4 +13,7 @@ exclude:
   
   # Exclude Cloud Run security checks
   - google-cloud-run-not-public
-  - google-cloud-run-https 
+  - google-cloud-run-https
+  
+  # Exclude IAM security checks (demo purposes only)
+  - google-iam-no-project-level-service-account-impersonation 

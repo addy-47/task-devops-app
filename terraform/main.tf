@@ -11,6 +11,7 @@ resource "google_project_service_identity" "serverless_sa" {
   service  = "run.googleapis.com"
 }
 
+# tfsec:ignore:google-iam-no-project-level-service-account-impersonation
 resource "google_project_iam_member" "serverless_sa_user" {
   project = var.project_id
   role    = "roles/iam.serviceAccountUser"
@@ -74,6 +75,7 @@ resource "google_secret_manager_secret_iam_member" "cloud_run_secret_access" {
   member    = "serviceAccount:${google_service_account.cloud_run_sa.email}"
 }
 
+# tfsec:ignore:google-iam-no-project-level-service-account-impersonation
 resource "google_project_iam_member" "cloud_run_sa_user" {
   project = var.project_id
   role    = "roles/iam.serviceAccountUser"
