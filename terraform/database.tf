@@ -85,7 +85,7 @@ resource "google_sql_database_instance" "postgres" {
       private_network                               = google_compute_network.vpc.id
       enable_private_path_for_google_cloud_services = true
       # Fix for HIGH: Require SSL/TLS for all connections
-      ssl_mode = "ENCRYPTED_ONLY"
+      ssl_mode = "REQUIRED"
     }
 
     maintenance_window {

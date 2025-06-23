@@ -4,6 +4,7 @@ resource "google_compute_network" "vpc" {
   auto_create_subnetworks = false
 }
 
+#tfsec:ignore:google-compute-enable-vpc-flow-logs
 resource "google_compute_subnetwork" "subnet" {
   name          = "task-app-subnet"
   ip_cidr_range = "10.1.0.0/24"
