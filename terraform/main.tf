@@ -4,6 +4,19 @@
 # - Enabling scale-to-zero for Cloud Run
 # - Disabling features that incur extra costs
 
+# Grant the Cloud Run Service Agent the required permissions
+resource "google_project_service_identity" "serverless_sa" {
+  provider = google-beta
+  project  = var.project_id
+  service  = "run.googleapis.com"
+}
+
+resource "google_project_iam_member" "serverless_sa_user" {
+  project = var.project_id
+  role    = "roles/iam.serviceAccountUser"
+  member  = "serviceAccount:${google_project_service_identity.serverless_sa.email}"
+}
+
 # VPC Network for private communication
 resource "google_compute_network" "vpc" {
   name                    = "task-app-vpc"
@@ -61,16 +74,10 @@ resource "google_secret_manager_secret_iam_member" "cloud_run_secret_access" {
   member    = "serviceAccount:${google_service_account.cloud_run_sa.email}"
 }
 
-resource "google_service_account_iam_member" "cloud_run_act_as" {
-  service_account_id = google_service_account.cloud_run_sa.name
-  role               = "roles/iam.serviceAccountUser"
-  member             = "serviceAccount:${google_service_account.cloud_run_sa.email}"
-}
-
-resource "google_service_account_iam_member" "cloud_run_agent_act_as" {
-  service_account_id = google_service_account.cloud_run_sa.name
-  role               = "roles/iam.serviceAccountUser"
-  member             = "serviceAccount:service-${var.project_id}@serverless-robot-prod.iam.gserviceaccount.com"
+resource "google_project_iam_member" "cloud_run_sa_user" {
+  project = var.project_id
+  role    = "roles/iam.serviceAccountUser"
+  member  = "serviceAccount:${google_service_account.cloud_run_sa.email}"
 }
 
 resource "google_cloud_run_service" "task_app" {
@@ -152,7 +159,11 @@ resource "google_cloud_run_service" "task_app" {
   depends_on = [
     google_sql_database_instance.postgres,
     google_vpc_access_connector.connector,
-    google_service_networking_connection.private_vpc_connection
+    google_service_networking_connection.private_vpc_connection,
+    google_project_iam_member.cloud_run_sa_user,
+    google_project_iam_member.cloud_run_sql_client,
+    google_secret_manager_secret_iam_member.cloud_run_secret_access,
+    google_project_iam_member.serverless_sa_user
   ]
 }
 
