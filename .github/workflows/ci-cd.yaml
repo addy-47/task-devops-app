@@ -147,7 +147,7 @@ jobs:
     - name: Terraform Plan
       run: |
         cd terraform
-        terraform plan -var="db_password=temp-password-for-ci" -out=tfplan
+        terraform plan -var="db_password=temp-password-for-ci" -var="project_id=$PROJECT_ID" -out=tfplan
 
     - name: Terraform Apply
       run: |
