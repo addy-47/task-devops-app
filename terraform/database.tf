@@ -33,6 +33,7 @@ resource "google_sql_database_instance" "postgres" {
   region           = var.region
   deletion_protection = true  # Enable deletion protection
 
+
     settings {
         tier              = "db-f1-micro"
         availability_type = "ZONAL"
@@ -56,6 +57,18 @@ resource "google_sql_database_instance" "postgres" {
       name  = "log_disconnections"
       value = "on"
     }
+    
+    # Fix for MEDIUM: Log lock waits
+    database_flags {
+      name  = "log_lock_waits"
+      value = "on"
+    }
+
+    # Fix for MEDIUM: Enable temporary file logging
+    database_flags {
+      name  = "log_temp_files"
+      value = "0" # Log all temporary files
+    }
 
     backup_configuration {
       enabled                        = true
@@ -71,6 +84,8 @@ resource "google_sql_database_instance" "postgres" {
       ipv4_enabled                                  = false  
       private_network                               = google_compute_network.vpc.id
       enable_private_path_for_google_cloud_services = true
+      # Fix for HIGH: Require SSL/TLS for all connections
+      ssl_mode = "ENCRYPTED_ONLY"
     }
 
     maintenance_window {

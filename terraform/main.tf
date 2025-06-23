@@ -1,4 +1,3 @@
-
 # VPC Network for private communication
 resource "google_compute_network" "vpc" {
   name                    = "task-app-vpc"
