@@ -18,6 +18,20 @@ resource "google_secret_manager_secret_version" "db_password" {
   secret_data = random_password.db_password.result
 }
 
+# Store the full database URL in Secret Manager
+resource "google_secret_manager_secret" "db_url" {
+  secret_id = "database-url"
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "db_url" {
+  secret      = google_secret_manager_secret.db_url.id
+  secret_data = "postgresql://${var.db_username}:${random_password.db_password.result}@${google_sql_database_instance.postgres.private_ip_address}:5432/${google_sql_database.database.name}"
+}
+
 # Artifact Registry Repository
 resource "google_artifact_registry_repository" "task_app_repo" {
   location      = var.region

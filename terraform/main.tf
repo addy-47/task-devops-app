@@ -75,6 +75,12 @@ resource "google_secret_manager_secret_iam_member" "cloud_run_secret_access" {
   member    = "serviceAccount:${google_service_account.cloud_run_sa.email}"
 }
 
+resource "google_secret_manager_secret_iam_member" "cloud_run_db_url_access" {
+  secret_id = google_secret_manager_secret.db_url.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.cloud_run_sa.email}"
+}
+
 # tfsec:ignore:google-iam-no-project-level-service-account-impersonation
 resource "google_project_iam_member" "cloud_run_sa_user" {
   project = var.project_id
@@ -103,7 +109,7 @@ resource "google_cloud_run_service" "task_app" {
       service_account_name = google_service_account.cloud_run_sa.email
     
       containers {
-        image = "gcr.io/cloudrun/hello:latest" # Temporary placeholder image until we push our own
+        image = "us-central1-docker.pkg.dev/task-devops-app/task-app/task-app" # Using Artifact Registry image
 
         ports {
           container_port = 8000
@@ -113,7 +119,7 @@ resource "google_cloud_run_service" "task_app" {
           name = "DATABASE_URL"
           value_from {
             secret_key_ref {
-              name = google_secret_manager_secret.db_password.secret_id
+              name = google_secret_manager_secret.db_url.secret_id
               key  = "latest"
             }
           }
@@ -165,6 +171,7 @@ resource "google_cloud_run_service" "task_app" {
     google_project_iam_member.cloud_run_sa_user,
     google_project_iam_member.cloud_run_sql_client,
     google_secret_manager_secret_iam_member.cloud_run_secret_access,
+    google_secret_manager_secret_iam_member.cloud_run_db_url_access,
     google_project_iam_member.serverless_sa_user
   ]
 }
