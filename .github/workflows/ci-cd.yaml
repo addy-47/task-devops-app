@@ -8,7 +8,7 @@ on:
 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  REGION: asia-south1
+  REGION: us-central1
   SERVICE_NAME: task-app
   WIF_PROVIDER: >-
     projects/${{ secrets.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider
