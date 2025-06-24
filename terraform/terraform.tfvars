@@ -1,0 +1,5 @@
+project_id  = "task-devops-app"
+region      = "us-central1"
+db_username = "addy"
+db_password = "addy"
+environment = "dev"
